@@ -33,14 +33,21 @@
 
 #pragma once
 
+#include <px4_platform_common/module_params.h>
 #include <drivers/drv_hrt.h>
 #include <lib/conversion/rotation.h>
+#include <lib/sensor_attack/sensor_attack.hpp>
 #include <lib/geo/geo.h>
+#include <uORB/Subscription.hpp>
+#include <uORB/SubscriptionInterval.hpp>
 #include <uORB/PublicationMulti.hpp>
+#include <uORB/topics/parameter_update.h>
 #include <uORB/topics/sensor_accel.h>
 #include <uORB/topics/sensor_accel_fifo.h>
 
-class PX4Accelerometer
+using namespace time_literals;
+
+class PX4Accelerometer : public ModuleParams
 {
 public:
 	PX4Accelerometer(uint32_t device_id, enum Rotation rotation = ROTATION_NONE);
@@ -66,8 +73,19 @@ public:
 private:
 	void UpdateClipLimit();
 
+    bool ParametersUpdate();
+
+    bool attack_enabled(const uint8_t &attack_type, const hrt_abstime &timestamp_sample) const;
+
+    void applyAccelAttack(sensor_accel_s &accel);
+    void applyAccelAttack(sensor_accel_s &accel, sensor_accel_fifo_s &accel_fifo);
+
+    float getMaxDeviation() const;
+
 	uORB::PublicationMulti<sensor_accel_s> _sensor_pub{ORB_ID(sensor_accel)};
 	uORB::PublicationMulti<sensor_accel_fifo_s>  _sensor_fifo_pub{ORB_ID(sensor_accel_fifo)};
+
+    uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	uint32_t		_device_id{0};
 	const enum Rotation	_rotation;
@@ -83,4 +101,15 @@ private:
 	uint32_t		_error_count{0};
 
 	int16_t			_last_sample[3] {};
+
+    int  _attack_flag_prev{0};
+    hrt_abstime _attack_timestamp{0};
+    float   _last_deviation[3] {};
+
+    DEFINE_PARAMETERS(
+        (ParamInt<px4::params::ATK_APPLY_TYPE>) _param_atk_apply_type,
+        (ParamInt<px4::params::ATK_COUNTDOWN_MS>) _param_atk_countdown_ms,
+        (ParamInt<px4::params::ATK_MULTI_IMU>) _param_atk_multi_imu,
+        (ParamFloat<px4::params::ATK_ACC_BIAS>) _param_atk_acc_bias
+    )
 };

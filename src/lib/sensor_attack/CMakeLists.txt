@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2018 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2020 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -31,10 +31,16 @@
 #
 ############################################################################
 
-px4_add_library(drivers_accelerometer
-	PX4Accelerometer.cpp
-	PX4Accelerometer.hpp
-    accel_attack_simulation.cpp
+px4_add_library(sensor_attack
+        common.h
+        Deviation.h
+        Deviation.cpp
+        helper_functions.cpp
 )
-target_compile_options(drivers_accelerometer PRIVATE ${MAX_CUSTOM_OPT_LEVEL})
-target_link_libraries(drivers_accelerometer PRIVATE conversion)
+
+add_dependencies(sensor_attack prebuild_targets)
+
+set_target_properties(sensor_attack PROPERTIES PUBLIC_HEADER "sensor_attack.hpp")
+set_target_properties(sensor_attack PROPERTIES LINKER_LANGUAGE CXX)
+
+

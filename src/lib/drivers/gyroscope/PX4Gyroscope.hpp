@@ -34,13 +34,20 @@
 
 #pragma once
 
+#include <px4_platform_common/module_params.h>
 #include <drivers/drv_hrt.h>
 #include <lib/conversion/rotation.h>
+#include <lib/sensor_attack/sensor_attack.hpp>
+#include <uORB/Subscription.hpp>
+#include <uORB/SubscriptionInterval.hpp>
 #include <uORB/PublicationMulti.hpp>
+#include <uORB/topics/parameter_update.h>
 #include <uORB/topics/sensor_gyro.h>
 #include <uORB/topics/sensor_gyro_fifo.h>
 
-class PX4Gyroscope
+using namespace time_literals;
+
+class PX4Gyroscope : public ModuleParams
 {
 public:
 	PX4Gyroscope(uint32_t device_id, enum Rotation rotation = ROTATION_NONE);
@@ -64,8 +71,18 @@ public:
 	int get_instance() { return _sensor_pub.get_instance(); };
 
 private:
+
+    bool ParametersUpdate();
+
+    bool attack_enabled(const uint8_t &attack_type, const hrt_abstime &timestamp_sample) const;
+
+    void applyGyroAttack(sensor_gyro_s &gyro);
+    void applyGyroAttack(sensor_gyro_s &gyro, sensor_gyro_fifo_s &gyro_fifo);
+
 	uORB::PublicationMulti<sensor_gyro_s> _sensor_pub{ORB_ID(sensor_gyro)};
 	uORB::PublicationMulti<sensor_gyro_fifo_s>  _sensor_fifo_pub{ORB_ID(sensor_gyro_fifo)};
+
+    uORB::SubscriptionInterval _parameter_update_sub{ORB_ID(parameter_update), 1_s};
 
 	uint32_t		_device_id{0};
 	const enum Rotation	_rotation;
@@ -79,4 +96,15 @@ private:
 	uint32_t		_error_count{0};
 
 	int16_t			_last_sample[3] {};
+
+    int  _attack_flag_prev{0};
+    hrt_abstime _attack_timestamp{0};
+    float   _last_deviation[3] {};
+
+    DEFINE_PARAMETERS(
+            (ParamInt<px4::params::ATK_APPLY_TYPE>) _param_atk_apply_type,
+            (ParamInt<px4::params::ATK_COUNTDOWN_MS>) _param_atk_countdown_ms,
+            (ParamInt<px4::params::ATK_MULTI_IMU>) _param_atk_multi_imu,
+            (ParamFloat<px4::params::ATK_GYR_BIAS>) _param_atk_gyr_bias
+    )
 };
